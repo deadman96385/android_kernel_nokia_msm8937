@@ -30,6 +30,7 @@
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
 
+#define DEBUG 1
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
 			   SND_JACK_MECHANICAL | SND_JACK_MICROPHONE2 | \
@@ -59,6 +60,51 @@ static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(det_extn_cable_en, "enable/disable extn cable detect");
+
+// ADD start define MBHC switch device for FTM qiujie 2018.01.15
+#define LEGACY_SWITCH_DEV_SUPPORT
+#ifdef LEGACY_SWITCH_DEV_SUPPORT
+#include <linux/switch.h>
+#include <asm/atomic.h>
+
+#define MBHC_SWITCH_DEVICE_NAME "h2w"
+#define SWITCH_MBHC_PLUG_STATE_HEADPHONE 2
+#define SWITCH_MBHC_PLUG_STATE_HEADSET 1
+#define SWITCH_MBHC_PLUG_STATE_NONE 0
+#define SWITCH_MBHC_PLUG_STATE_INVALID (-1)
+
+struct h2w_info {
+	struct switch_dev sdev;
+	atomic_t btn_state;
+};
+static struct h2w_info *fih_hs;
+
+static ssize_t trout_h2w_print_name(struct switch_dev *sdev, char *buf)
+{
+	int state = 0;
+	state = switch_get_state(sdev);
+
+	switch (state)
+	{
+		case SWITCH_MBHC_PLUG_STATE_NONE:
+			return sprintf(buf, "No Device\n");
+		case SWITCH_MBHC_PLUG_STATE_HEADSET:
+			return sprintf(buf, "Headset\n");
+		case SWITCH_MBHC_PLUG_STATE_HEADPHONE:
+			return sprintf(buf, "Headphone\n");
+		default:
+			return -EINVAL;
+	}
+}
+static ssize_t show_btn_state(struct device *dev,struct device_attribute *attr, char *buf)
+{
+	unsigned char btn_state;
+	btn_state = atomic_read(&fih_hs->btn_state);
+	return sprintf(buf, "%u\n", btn_state);
+}
+static DEVICE_ATTR(btn_state, 0444, show_btn_state, NULL);
+#endif
+// ADD end define MBHC switch device for FTM qiujie 2018.01.15
 
 enum wcd_mbhc_cs_mb_en_flag {
 	WCD_MBHC_EN_CS = 0,
@@ -119,6 +165,10 @@ static void wcd_program_hs_vref(struct wcd_mbhc *mbhc)
 
 	plug_type_cfg = WCD_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 	reg_val = ((plug_type_cfg->v_hs_max - HS_VREF_MIN_VAL) / 100);
+
+	// Add start Support High-impedance headset qiujie 2018.0314
+	reg_val = reg_val + 0x01;
+	// Add end Support High-impedance headset qiujie 2018.0314
 
 	dev_dbg(codec->dev, "%s: reg_val  = %x\n", __func__, reg_val);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_VREF, reg_val);
@@ -600,7 +650,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
-		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
+		if(!wcd_mbhc_is_hph_pa_on(mbhc)){
+			wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
+		}
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
@@ -717,7 +769,10 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				    WCD_MBHC_JACK_MASK);
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
 	}
-	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
+
+	switch_set_state(&fih_hs->sdev, mbhc->current_plug);
+
+	pr_debug("%s: leave hph_status %x,switch_set_state %d\n", __func__, mbhc->hph_status,mbhc->current_plug);
 }
 
 static bool wcd_mbhc_detect_anc_plug_type(struct wcd_mbhc *mbhc)
@@ -834,7 +889,8 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 						SND_JACK_HEADPHONE);
 			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADSET)
 				wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
-		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+		//wcd_mbhc_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
+		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADSET);//Change UNSUPPORTED to HEADSET for OMTP Headset
 	} else if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
 		if (mbhc->mbhc_cfg->enable_anc_mic_detect)
 			anc_mic_found = wcd_mbhc_detect_anc_plug_type(mbhc);
@@ -1181,7 +1237,12 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
 
-	/* Enable HW FSM */
+	/* Reset HW FSM */
+	/* From E2M HW design, play using speaker will enable HPH PA.
+	 * And HPH PA enabled will change HW FSM status, and it will
+	 * cause headset detect wrong when play.
+	 */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
 	/*
 	 * Check for any button press interrupts before starting 3-sec
@@ -1421,6 +1482,33 @@ report:
 		wcd_cancel_btn_work(mbhc);
 		plug_type = MBHC_PLUG_TYPE_HEADPHONE;
 	}
+
+#define FIH_FEATURE_ENABLE_SELFIE_STICK
+
+#ifdef FIH_FEATURE_ENABLE_SELFIE_STICK
+    if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
+		/*
+		 * calculate impedance detection
+		 * If Zl and Zr > 20k then it is special accessory
+		 * otherwise unsupported cable.
+		 */
+		if (mbhc->impedance_detect) {
+			if (mbhc->mbhc_cb->compute_impedance)
+				mbhc->mbhc_cb->compute_impedance(mbhc, &mbhc->zl, &mbhc->zr);
+			if (mbhc->mbhc_cb->compute_impedance &&
+					(mbhc->zl > 20000) && (mbhc->zr > 20000)) {
+				pr_debug("%s: special accessory \n", __func__);
+				/* Toggle switch back */
+				if (mbhc->mbhc_cfg->swap_gnd_mic &&
+						mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec)) {
+					pr_debug("%s: US_EU gpio present,flip switch again\n"
+							, __func__);
+				}
+				plug_type = MBHC_PLUG_TYPE_HEADSET;
+			}
+		}
+	}
+#endif /* FIH_FEATURE_ENABLE_SELFIE_STICK */
 	pr_debug("%s: Valid plug found, plug type %d wrk_cmpt %d btn_intr %d\n",
 			__func__, plug_type, wrk_complete,
 			mbhc->btn_press_intr);
@@ -1457,6 +1545,30 @@ exit:
 
 	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
 		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, true);
+
+// ADD start Report headset plug state for FTM qiujie 2018.01.15
+/*#ifdef LEGACY_SWITCH_DEV_SUPPORT
+	{
+		int mbhc_switch_state;
+		switch (plug_type) {
+			case MBHC_PLUG_TYPE_HEADPHONE:
+				mbhc_switch_state = SWITCH_MBHC_PLUG_STATE_HEADPHONE;
+				break;
+			case MBHC_PLUG_TYPE_HEADSET:
+				mbhc_switch_state = SWITCH_MBHC_PLUG_STATE_HEADSET;
+				break;
+			case MBHC_PLUG_TYPE_NONE:
+				mbhc_switch_state = SWITCH_MBHC_PLUG_STATE_NONE;
+				break;
+			default:
+				mbhc_switch_state = SWITCH_MBHC_PLUG_STATE_INVALID;
+				break;
+		}
+		switch_set_state(&(fih_hs->sdev), mbhc_switch_state);
+		pr_info("%s: switch_set_state %d\n", __func__, mbhc_switch_state);
+	}
+#endif*/
+// ADD end Report headset plug state for FTM qiujie 2018.01.15
 
 	mbhc->mbhc_cb->lock_sleep(mbhc, false);
 	pr_debug("%s: leave\n", __func__);
@@ -1620,6 +1732,15 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM, false);
 
 	}
+
+// ADD start Report headset plug out for FTM qiujie 2018.01.15
+/*#ifdef LEGACY_SWITCH_DEV_SUPPORT
+	if (!detection_type) {
+		switch_set_state(&(fih_hs->sdev), 0);
+		pr_info("%s: switch_set_state 0\n", __func__);
+	}
+#endif*/
+// ADD end Report headset plug out for FTM qiujie 2018.01.15
 
 	mbhc->in_swch_irq_handler = false;
 	WCD_MBHC_RSC_UNLOCK(mbhc);
@@ -1898,6 +2019,13 @@ static void wcd_btn_lpress_fn(struct work_struct *work)
 		wcd_mbhc_jack_report(mbhc, &mbhc->button_jack,
 				mbhc->buttons_pressed, mbhc->buttons_pressed);
 	}
+// ADD start Report headset button press state for FTM qiujie 2018.01.15
+#ifdef LEGACY_SWITCH_DEV_SUPPORT
+	atomic_set(&fih_hs->btn_state, 1);
+	pr_info("%s: switch_set_btn_state press\n", __func__);
+#endif
+// ADD end Report headset button press state for FTM qiujie 2018.01.15
+
 	pr_debug("%s: leave\n", __func__);
 	mbhc->mbhc_cb->lock_sleep(mbhc, false);
 }
@@ -2033,6 +2161,14 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 		}
 		mbhc->buttons_pressed &= ~WCD_MBHC_JACK_BUTTON_MASK;
 	}
+
+// ADD start Report headset button release state for FTM qiujie 2018.01.15
+#ifdef LEGACY_SWITCH_DEV_SUPPORT
+	atomic_set(&fih_hs->btn_state, 0);
+	pr_info("%s: switch_set_btn_state release\n", __func__);
+#endif
+// ADD end Report headset button release state for FTM qiujie 2018.01.15
+
 exit:
 	pr_debug("%s: leave\n", __func__);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
@@ -2552,9 +2688,44 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		goto err_hphr_ocp_irq;
 	}
 
+// ADD start Init headset switch device for FTM qiujie 2018.01.15
+#ifdef LEGACY_SWITCH_DEV_SUPPORT
+	if (!fih_hs) {
+		pr_info("%s: kzalloc fih_hs\n", __func__);
+		fih_hs = kzalloc(sizeof(struct h2w_info), GFP_KERNEL);
+		if (!fih_hs)
+			goto err_mbhc_hs_switch;
+		// Init btn state to 0
+		atomic_set(&fih_hs->btn_state, 0);
+		fih_hs->sdev.name = MBHC_SWITCH_DEVICE_NAME;
+		fih_hs->sdev.print_name = trout_h2w_print_name;
+		ret = switch_dev_register(&fih_hs->sdev);
+		if (!ret) {
+			ret = device_create_file(fih_hs->sdev.dev,&dev_attr_btn_state);
+			if(ret) {
+				pr_err("%s: device_create_file btn_state fail %d!\n", __func__, ret);
+				switch_dev_unregister(&fih_hs->sdev);
+				goto err_mbhc_hs_switch;
+			}
+		} else {
+			pr_err("%s: switch_dev_register (%s) fail %d\n", __func__, fih_hs->sdev.name, ret);
+			goto err_mbhc_hs_switch;
+		}
+	} else
+		pr_err("%s: fih_hs already exist with name(%s)\n", __func__, fih_hs->sdev.name);
+#endif
+// ADD end Init headset switch device for FTM qiujie 2018.01.15
+
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
 
+// ADD start Init headset switch device err handler qiujie 2018.01.15
+#ifdef LEGACY_SWITCH_DEV_SUPPORT
+err_mbhc_hs_switch:
+	if (fih_hs)
+		kfree(fih_hs);
+#endif
+// ADD end Init headset switch device err handler qiujie 2018.01.15
 err_hphr_ocp_irq:
 	mbhc->mbhc_cb->free_irq(codec, mbhc->intr_ids->hph_left_ocp, mbhc);
 err_hphl_ocp_irq:
@@ -2594,6 +2765,12 @@ void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 	mbhc->mbhc_cb->free_irq(codec, mbhc->intr_ids->hph_right_ocp, mbhc);
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->register_notifier)
 		mbhc->mbhc_cb->register_notifier(codec, &mbhc->nblock, false);
+// ADD start Deinit headset switch device for FTM qiujie 2018.01.15
+#ifdef LEGACY_SWITCH_DEV_SUPPORT
+	switch_dev_unregister(&fih_hs->sdev);
+	kfree(fih_hs);
+#endif
+// ADD end Deinit headset switch device for FTM qiujie 2018.01.15
 	mutex_destroy(&mbhc->codec_resource_lock);
 }
 EXPORT_SYMBOL(wcd_mbhc_deinit);
