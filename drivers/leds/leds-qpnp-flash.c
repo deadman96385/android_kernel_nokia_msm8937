@@ -1317,12 +1317,12 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	brightness = flash_node->cdev.brightness;
 	if (!brightness)
 		goto turn_off;
-
+#if 0
 	if (led->open_fault) {
 		dev_err(&led->spmi_dev->dev, "Open fault detected\n");
 		goto unlock_mutex;
 	}
-
+#endif
 	if (!flash_node->flash_on && flash_node->num_regulators > 0) {
 		rc = flash_regulator_enable(led, flash_node, true);
 		if (rc)

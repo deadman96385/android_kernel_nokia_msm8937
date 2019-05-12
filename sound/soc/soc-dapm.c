@@ -69,6 +69,9 @@ static int dapm_up_seq[] = {
 	[snd_soc_dapm_adc] = 4,
 	[snd_soc_dapm_mic] = 5,
 	[snd_soc_dapm_mux] = 6,
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	[snd_soc_dapm_demux] = 6,
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 	[snd_soc_dapm_dac] = 7,
 	[snd_soc_dapm_switch] = 8,
 	[snd_soc_dapm_mixer] = 8,
@@ -102,6 +105,9 @@ static int dapm_down_seq[] = {
 	[snd_soc_dapm_mic] = 7,
 	[snd_soc_dapm_micbias] = 8,
 	[snd_soc_dapm_mux] = 9,
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	[snd_soc_dapm_demux] = 9,
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 	[snd_soc_dapm_dai_in] = 10,
 	[snd_soc_dapm_dai_out] = 10,
 	[snd_soc_dapm_dai_link] = 11,
@@ -202,6 +208,9 @@ static int dapm_kcontrol_data_alloc(struct snd_soc_dapm_widget *widget,
 {
 	struct dapm_kcontrol_data *data;
 	struct soc_mixer_control *mc;
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	struct soc_enum *e;
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data) {
@@ -244,6 +253,37 @@ static int dapm_kcontrol_data_alloc(struct snd_soc_dapm_widget *widget,
 			}
 		}
 		break;
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	case snd_soc_dapm_demux:
+	case snd_soc_dapm_mux:
+		e = (struct soc_enum *)kcontrol->private_value;
+
+		if (e->autodisable) {
+			struct snd_soc_dapm_widget template;
+
+			memset(&template, 0, sizeof(template));
+			template.reg = e->reg;
+			template.mask = e->mask << e->shift_l;
+			template.shift = e->shift_l;
+			template.off_val = snd_soc_enum_item_to_val(e, 0);
+			template.on_val = template.off_val;
+			template.id = snd_soc_dapm_kcontrol;
+			template.name = kcontrol->id.name;
+
+			data->value = template.on_val;
+
+			data->widget = snd_soc_dapm_new_control(widget->dapm,
+				&template);
+			if (!data->widget) {
+				kfree(data);
+				return -ENOMEM;
+			}
+
+			snd_soc_dapm_add_path(widget->dapm, data->widget,
+					      widget, NULL, NULL);
+		}
+		break;
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 	default:
 		break;
 	}
@@ -623,6 +663,9 @@ static int dapm_create_or_share_mixmux_kcontrol(struct snd_soc_dapm_widget *w,
 				wname_in_long_name = false;
 				kcname_in_long_name = true;
 				break;
+			// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+			case snd_soc_dapm_demux:
+			// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 			case snd_soc_dapm_mux:
 				wname_in_long_name = true;
 				kcname_in_long_name = false;
@@ -723,26 +766,60 @@ static int dapm_new_mux(struct snd_soc_dapm_widget *w)
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_dapm_path *path;
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	struct list_head *paths;
+	const char *type;
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 	int ret;
 
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	switch (w->id) {
+	case snd_soc_dapm_mux:
+		paths = &w->sources;
+		type = "mux";
+		break;
+	case snd_soc_dapm_demux:
+		paths = &w->sinks;
+		type = "demux";
+		break;
+	default:
+		return -EINVAL;
+	}
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
+
 	if (w->num_kcontrols != 1) {
+		// Mod start Porting Demux from kernel 4.2 qiujie 2018.0320
 		dev_err(dapm->dev,
-			"ASoC: mux %s has incorrect number of controls\n",
+			"ASoC: %s %s has incorrect number of controls\n", type,
 			w->name);
+		// Mod end Porting Demux from kernel 4.2 qiujie 2018.0320
 		return -EINVAL;
 	}
 
-	if (list_empty(&w->sources)) {
-		dev_err(dapm->dev, "ASoC: mux %s has no paths\n", w->name);
+	// Mod start Porting Demux from kernel 4.2 qiujie 2018.0320
+	if (list_empty(paths)) {
+		dev_err(dapm->dev, "ASoC: %s %s has no paths\n", type, w->name);
 		return -EINVAL;
 	}
+	// Mod end Porting Demux from kernel 4.2 qiujie 2018.0320
 
 	ret = dapm_create_or_share_mixmux_kcontrol(w, 0);
 	if (ret < 0)
 		return ret;
 
-	list_for_each_entry(path, &w->sources, list_sink)
-		dapm_kcontrol_add_path(w->kcontrols[0], path);
+	// Mod start Porting Demux from kernel 4.2 qiujie 2018.0320
+	if (w->id == snd_soc_dapm_mux) {
+		list_for_each_entry(path, &w->sources, list_sink) {
+			if (path->name)
+				dapm_kcontrol_add_path(w->kcontrols[0], path);
+		}
+	} else {
+		list_for_each_entry(path, &w->sinks, list_source) {
+			if (path->name)
+				dapm_kcontrol_add_path(w->kcontrols[0], path);
+		}
+	}
+	// Mod end Porting Demux from kernel 4.2 qiujie 2018.0320
 
 	return 0;
 }
@@ -2334,6 +2411,52 @@ int snd_soc_dapm_sync(struct snd_soc_dapm_context *dapm)
 }
 EXPORT_SYMBOL_GPL(snd_soc_dapm_sync);
 
+// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+static int snd_soc_dapm_check_dynamic_path(struct snd_soc_dapm_context *dapm,
+	struct snd_soc_dapm_widget *source, struct snd_soc_dapm_widget *sink,
+	const char *control)
+{
+	bool dynamic_source = false;
+	bool dynamic_sink = false;
+
+	if (!control)
+		return 0;
+
+	switch (source->id) {
+	case snd_soc_dapm_demux:
+		dynamic_source = true;
+		break;
+	default:
+		break;
+	}
+
+	switch (sink->id) {
+	case snd_soc_dapm_mux:
+	case snd_soc_dapm_switch:
+	case snd_soc_dapm_mixer:
+	case snd_soc_dapm_mixer_named_ctl:
+		dynamic_sink = true;
+		break;
+	default:
+		break;
+	}
+
+	if (dynamic_source && dynamic_sink) {
+		dev_err(dapm->dev,
+			"Direct connection between demux and mixer/mux not supported for path %s -> [%s] -> %s\n",
+			source->name, control, sink->name);
+		return -EINVAL;
+	} else if (!dynamic_source && !dynamic_sink) {
+		dev_err(dapm->dev,
+			"Control not supported for path %s -> [%s] -> %s\n",
+			source->name, control, sink->name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
+
 static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 	struct snd_soc_dapm_widget *wsource, struct snd_soc_dapm_widget *wsink,
 	const char *control,
@@ -2342,6 +2465,12 @@ static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 {
 	struct snd_soc_dapm_path *path;
 	int ret;
+
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	ret = snd_soc_dapm_check_dynamic_path(dapm, wsource, wsink, control);
+	if (ret)
+		return ret;
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 
 	path = kzalloc(sizeof(struct snd_soc_dapm_path), GFP_KERNEL);
 	if (!path)
@@ -2384,6 +2513,19 @@ static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 	}
 
 	/* connect dynamic paths */
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	switch (wsource->id) {
+	case snd_soc_dapm_demux:
+		ret = dapm_connect_mux(dapm, wsource, wsink, path, control,
+				&wsource->kcontrol_news[0]);
+		if (ret)
+			goto err;
+		return 0;
+	default:
+		break;
+	}
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
+
 	switch (wsink->id) {
 	case snd_soc_dapm_adc:
 	case snd_soc_dapm_dac:
@@ -2416,6 +2558,11 @@ static int snd_soc_dapm_add_path(struct snd_soc_dapm_context *dapm,
 		if (ret != 0)
 			goto err;
 		break;
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	case snd_soc_dapm_demux:
+		path->connect = 1;
+		return 0;
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 	case snd_soc_dapm_switch:
 	case snd_soc_dapm_mixer:
 	case snd_soc_dapm_mixer_named_ctl:
@@ -2740,6 +2887,9 @@ int snd_soc_dapm_new_widgets(struct snd_soc_card *card)
 			dapm_new_mixer(w);
 			break;
 		case snd_soc_dapm_mux:
+		// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+		case snd_soc_dapm_demux:
+		// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 			dapm_new_mux(w);
 			break;
 		case snd_soc_dapm_pga:
@@ -3123,6 +3273,9 @@ snd_soc_dapm_new_control(struct snd_soc_dapm_context *dapm,
 		w->power_check = dapm_generic_check_power;
 		break;
 	case snd_soc_dapm_mux:
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	case snd_soc_dapm_demux:
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 		w->power_check = dapm_generic_check_power;
 		break;
 	case snd_soc_dapm_dai_out:

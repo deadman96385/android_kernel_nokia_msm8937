@@ -1,0 +1,383 @@
+/*
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/msm/power-on.h>
+#include "msm8917-pinctrl-costdown.dtsi"
+#include "msm8917-camera-sensor-mtp-costdown.dtsi"
+
+&i2c_2 { /* BLSP1 QUP2 */
+	status="okay";
+	bq2560x@6B{
+		compatible = "ti,bq25600-charger";
+		reg = <0x6B>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <61 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+
+		//vdd-supply = <&pm8917_l16>;
+		vdd-supply = <&pm8917_l5>;
+
+		ti,bq2560x,usb-vlim = <4600>;
+		ti,bq2560x,usb-ilim = <500>;
+		ti,bq2560x,usb-vreg = <4368>;
+		ti,bq2560x,usb-vreg-jp = <4320>;
+		ti,bq2560x,usb-ichg = <500>;
+
+		ti,bq2560x,ta-vlim = <4600>;
+		ti,bq2560x,ta-ilim = <2000>;
+		ti,bq2560x,ta-vreg = <4368>;
+		ti,bq2560x,ta-vreg-jp = <4320>;
+		ti,bq2560x,ta-ichg = <1900>;
+
+		ti,bq2560x,precharge-current = <256>;
+		ti,bq2560x,termination-current = <180>;
+		ti,bq2560x,boost-voltage = <5000>;
+		ti,bq2560x,boost-current = <1200>;
+		ti,bq2560x,enable_term;
+		ti,bq2560x,stat-pin-ctrl = <0>;
+		ti,bq2560x,vac-ovp-threshold = <6500>;
+
+		ti,bq2560x,jeita-hot-degc = <550>;
+		ti,bq2560x,jeita-warm-degc = <450>;
+		ti,bq2560x,jeita-cool-degc = <100>;
+		ti,bq2560x,jeita-cold-degc = <0>;
+		ti,bq2560x,jeita-hot-hysteresis = <50>;
+		ti,bq2560x,jeita-cold-hysteresis = <50>;
+		ti,bq2560x,jeita-cool-ma = <1200>;
+		ti,bq2560x,jeita-cool-mv = <4368>;
+		ti,bq2560x,jeita-warm-ma = <1900>;
+		ti,bq2560x,jeita-warm-mv = <4200>;
+		ti,bq2560x,software-jeita-supported;
+
+		ti,thermal-mitigation = <1900 1500 1000 0>;
+		bq2560x_otg_vreg: ti,bq2560x-boost-otg {
+				regulator-name = "bq2560x_otg_vreg";
+		};
+	};
+
+	bq27426@55{
+		compatible = "ti,bq27426";
+		reg = <0x55>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <36 2>;
+
+		pinctrl-names = "bat_id_default","default";
+		pinctrl-0 = <&bat_id_default>;
+		pinctrl-1 = <&bq_int_default>;
+		bat_id_gpio_num = <50>;
+		qcom,batid-vadc = <&pm8937_vadc>;
+	};
+};
+
+&spi_3 { /* BLSP1 QUP3 */
+	spi-max-frequency = <16000000>;
+	maxim_sti@0 {
+		status = "disabled";
+		compatible = "maxim,maxim_sti";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0>;
+		spi-max-frequency = <16000000>;
+		avdd-supply = <&pm8917_l10>;
+		dvdd-supply = <&pm8917_l5>;
+		maxim_sti,irq-gpio = <&tlmm 65 0x00>;
+		maxim_sti,reset-gpio = <&tlmm 64 0x00>;
+		maxim_sti,touch_fusion = "/vendor/bin/touch_fusion";
+		maxim_sti,config_file = "/etc/firmware/qtc800s.cfg";
+		maxim_sti,fw_name = "qtc800s.bin";
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+			"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+	};
+};
+
+&soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&tlmm 128 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			debounce-interval = <15>;
+		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&tlmm 127 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			debounce-interval = <15>;
+		};
+
+		vol_down {
+			label = "volume_down";
+			gpios = <&tlmm 91 0x1>;
+			linux,input-type = <1>;
+			linux,code = <114>;
+			debounce-interval = <15>;
+		};
+	};
+
+#if 0
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		vcc_ana-supply = <&pm8917_l10>;
+		vcc_dig-supply = <&pm8917_l5>;
+		qcom,afe-load = <50000>;
+		qcom,afe-vtg-min = <2850000>;
+		qcom,afe-vtg-max = <2850000>;
+		qcom,dig-load = <15000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+	};
+#endif
+};
+
+/*
+&flash_led {
+	compatible = "qcom,qpnp-flash-led";
+	reg = <0xd300 0x100>;
+	pinctrl-names = "flash_led_enable","flash_led_disable";
+	pinctrl-0 = <&rear_flash_led_enable>;
+	pinctrl-1 = <&rear_flash_led_disable>;
+	qcom,follow-otst2-rb-disabled;
+};
+
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+};
+
+&pmi_haptic{
+	qcom,actuator-type = "erm";
+	qcom,wave-play-rate-us = <4165>;
+	qcom,lra-auto-res-mode="qwd";
+	qcom,lra-high-z="opt1";
+	qcom,lra-res-cal-period = <0>;
+	qcom,vmax-mv = <3000>;
+	qcom,ilim-ma = <90>;
+};
+*/
+
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+#include "msm8937-mdss-panels.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_otm1290a_720p_video_hlt_mp>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
+	qcom,platform-lcm-enp-gpio = <&tlmm 23 0>;
+	qcom,platform-lcm-enn-gpio = <&tlmm 104 0>;
+};
+
+&dsi_otm1290a_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_hlt_evt {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_hlt_evt2 {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_hlt_dvt {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_hlt_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_txd_evt2 {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_txd_dvt {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_otm1290a_720p_video_txd_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_ili9881c_720p_video_hlt_es {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_ili9881c_720p_video_hlt_cs {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_ili9881c_720p_video_hlt_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_ili9881c_720p_video_inno_es {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_ili9881c_720p_video_inno_cs {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_ili9881c_720p_video_inno_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-max-level = <255>;
+};
+
+&dsi_truly_720_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,ulps-enabled;
+	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <2 2 2 2 2 2>;
+};
+
+&dsi_icn9706_720_1440_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&pm8917_l8>;
+	qcom,vdd-voltage-level = <2900000 2900000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8917_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000
+								384000000>;
+	qcom,nonremovable;
+	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	/* device core power supply */
+	vdd-supply = <&pm8917_l11>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <15000 800000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8917_l12>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+		1 &intc 0 221 0
+		2 &tlmm 67 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&tlmm 67 0x1>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+								200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	status = "ok";
+};
+
+&usb_otg {
+	interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
+	interrupt-names = "core_:qirq", "async_irq", "phy_irq";
+
+	qcom,hsusb-otg-otg-control = <2>;
+	qcom,hsusb-otg-mode = <3>;
+	qcom,hsusb-otg-default-mode = <1>;
+
+	vbus_otg-supply = <&bq2560x_otg_vreg>;
+};
+
+&soc{
+	gpio_vib{
+		compatible = "fih,gpio-vibrator";
+		fih,gpio-num = <68>;
+		fih,timeout = <6000>;
+	};
+
+};

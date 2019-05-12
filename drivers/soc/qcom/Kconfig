@@ -344,6 +344,12 @@ config MSM_RPM_STATS_LOG
           the low power modes that RPM enters. The drivers outputs the message
           via a debugfs node.
 
+config FIH_DEBUG_FS_SUBSYS
+	bool "FIH DEBUG FS"
+	default n
+	help
+	 Help Config for FTM mode, e.g. startup subsystem
+
 config MSM_RUN_QUEUE_STATS
 	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
 	help

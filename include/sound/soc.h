@@ -1243,6 +1243,9 @@ struct soc_enum {
 	unsigned int mask;
 	const char * const *texts;
 	const unsigned int *values;
+	// Add start Porting Demux from kernel 4.2 qiujie 2018.0320
+	unsigned int autodisable:1;
+	// Add end Porting Demux from kernel 4.2 qiujie 2018.0320
 };
 
 /**

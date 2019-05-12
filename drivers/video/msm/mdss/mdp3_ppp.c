@@ -33,7 +33,7 @@
 #include "mdp3_ctrl.h"
 
 #define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
-#define MDP_RELEASE_BW_TIMEOUT 50
+#define MDP_RELEASE_BW_TIMEOUT 100
 
 #define MDP_PPP_MAX_BPP 4
 #define MDP_PPP_DYNAMIC_FACTOR 3

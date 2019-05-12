@@ -114,6 +114,12 @@ enum pmic_thermal_override_mode {
 	SOFTWARE_OVERRIDE_ENABLED,
 };
 
+
+/* Black Box */
+#define BBOX_PTEMP_GET_FAIL do {printk("BBox;%s: Get temp fail\n", __func__); printk("BBox::UEC;22::0\n");} while (0);
+#define BBOX_PTEMP_REGISTER_FAIL do {printk("BBox;%s: Register thermal fail\n", __func__); printk("BBox::UEC;22::4\n");} while (0);
+#define BBOX_PTEMP_IRQ_FAIL do {printk("BBox;%s: Request IRQ fail\n", __func__); printk("BBox::UEC;22::6\n");} while (0);
+
 /* This array maps from GEN2 alarm state to GEN1 alarm stage */
 const unsigned int alarm_state_map[8] = {0, 1, 1, 2, 2, 3, 3, 3};
 

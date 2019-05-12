@@ -25,6 +25,16 @@
 
 #include "mdss_dsi.h"
 #ifdef TARGET_HW_MDSS_HDMI
+//SW4-HL-Display-BBox-00+{_20150610
+/* Black Box */
+#define BBOX_PANEL_GPIO_FAIL do {printk("BBox;%s: GPIO fail\n", __func__); printk("BBox::UEC;0::1\n");} while (0);
+//SW4-HL-Display-BBox-00+}_20150610
+/* E1M-634 - gatycclu - Add LCM BBS log */
+#define BBOX_LCM_DISPLA_ON_FAIL do {printk("BBox;%s: LCM Display on fail\n", __func__); printk("BBox::UEC;0::2\n");} while (0);
+#define BBOX_LCM_DISPLA_OFF_FAIL    do {printk("BBox;%s: LCM Display off fail\n", __func__); printk("BBox::UEC;0::3\n");} while (0);
+#define BBOX_LCM_POWER_STATUS_ABNORMAL    do {printk("BBox;%s: LCM power status abnormal\n", __func__); printk("BBox::UEC;0::6\n");} while (0);
+#define BBOX_LCM_OEM_FUNCTIONS_FAIL do {printk("BBox;%s: LCM OEM functions (CE or CT or BLF or CABC) functions fail!\n", __func__); printk("BBox::UEC;0::8\n");} while (0);
+#define BBOX_BACKLIGHT_PWM_OPERATION_FAIL do {printk("BBox;%s: BL DCS cmd fail\n", __func__); printk("BBox::UEC;1::0\n");} while (0);
 #include "mdss_dba_utils.h"
 #endif
 #define DT_CMD_HDR 6
@@ -209,9 +219,9 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
-static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
+static char led_pwm1[3] = {0x51, 0x0, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1)},
 	led_pwm1
 };
 
@@ -228,7 +238,21 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
-	led_pwm1[1] = (unsigned char)level;
+	pr_debug("%s: panel_name=%s\n", __func__, pinfo->panel_name);
+	if(strstr(pinfo->panel_name, "otm1290a"))
+	{
+		pr_debug("%s: otma\n", __func__);
+		led_pwm1[1] = (unsigned char)level;
+		led_pwm1[2] = 0;
+	}
+	else
+	{
+		pr_debug("%s: ilitek\n", __func__);
+		led_pwm1[1] = (unsigned char)(level&0xF0)>>4;
+		led_pwm1[2] = (unsigned char)(level&0x0F)<<4;
+	}
+	pr_debug("%s: level1=%d\n", __func__, led_pwm1[1]);
+	pr_debug("%s: level2=%d\n", __func__, led_pwm1[2]);
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
 	cmdreq.cmds = &backlight_cmd;
@@ -2833,6 +2857,8 @@ error:
 	return -EINVAL;
 }
 
+static struct mdss_panel_data *g_pdata;
+
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	int ndx)
@@ -2878,5 +2904,84 @@ int mdss_dsi_panel_init(struct device_node *node,
 			mdss_dsi_panel_apply_display_setting;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
 	ctrl_pdata->panel_data.get_idle = mdss_dsi_panel_get_idle_mode;
+
+	g_pdata = &(ctrl_pdata->panel_data);
+
 	return 0;
+}
+
+/*
+ * fts_dsi_write_regs: mipi write registers
+ * @cmd: operate command
+ * @data: data buffer to write, can be null
+ * @size: data buffer size, can be 0
+ *
+ * Return: 0 success, otherwise fail
+ */
+int fts_dsi_write_regs(char cmd, char *data, int size)
+{
+	struct mdss_panel_data *panel_data = g_pdata;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(panel_data,
+					struct mdss_dsi_ctrl_pdata, panel_data);
+
+	int i;
+	struct dsi_panel_cmds fts_pcmds;
+	struct dsi_cmd_desc wcmd;
+	unsigned char *opbuf;
+
+	opbuf = kzalloc(1+size, GFP_KERNEL);
+	if (!opbuf) {
+		pr_err("[FTS]no memory\n");
+		return -ENOMEM;
+	}
+	opbuf[0] = cmd;
+	for (i = 0; i < size; i++) {
+		opbuf[i+1] = data[i];
+	}
+
+	wcmd.payload = opbuf;
+	wcmd.dchdr.dtype = 0x29;
+	wcmd.dchdr.last = 0x01;
+	wcmd.dchdr.vc = 0x00;
+	wcmd.dchdr.ack = 0x00;
+	wcmd.dchdr.wait = 0x00;
+	wcmd.dchdr.dlen = size+1;
+
+	fts_pcmds.cmd_cnt = 1;
+	fts_pcmds.link_state = DSI_LP_MODE;
+	fts_pcmds.cmds = &wcmd;
+
+	mdss_dsi_panel_cmds_send(ctrl_pdata, &fts_pcmds, CMD_REQ_COMMIT);
+
+	kfree(opbuf);
+	return 0;
+}
+
+/*
+ * fts_dsi_read_regs: mipi read registers
+ * @addr: operate register addr
+ * @buffer: buffer to save return values, cannot be null
+ * @size: buffer size, cannot be 0
+ *
+ * Return: 0 success, otherwise fail
+ */
+int fts_dsi_read_regs(char addr, char *buffer, int size)
+{
+	int rx_len = 0;
+	int ret;
+
+	struct mdss_panel_data *panel_data = g_pdata;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(panel_data,
+							struct mdss_dsi_ctrl_pdata, panel_data);
+
+	ret = mdss_dsi_panel_cmd_read(ctrl_pdata, addr, 0x00, NULL, buffer, size);
+
+	rx_len = ctrl_pdata->rx_len;
+
+	if (rx_len != size) {
+		pr_err("[FTS]rx_len: %d, buffer_size: %d\n", rx_len, size);
+		ret = -EIO;
+	}
+
+	return ret;
 }

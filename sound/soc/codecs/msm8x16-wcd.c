@@ -114,6 +114,11 @@ enum {
 #define VOLTAGE_CONVERTER(value, min_value, step_size)\
 	((value - min_value)/step_size)
 
+#define BBOX_WCD_SPMI_PROBE_FAILED do {printk("BBox;%s: SPMI probe fail\n", __func__); printk("BBox::UEC;2::1\n");} while(0);
+#define BBOX_WCD_PROBE_ALLCO_FAIL do {printk("BBox;%s: WCD probe memory alloc error!\n", __func__); printk("BBox::UEC;2::3\n");} while (0);
+#define BBOX_WCD_PROBE_HWDEP_FAIL do {printk("BBox;%s: hwdep failed %d\n", __func__, ret); printk("BBox::UEC;2::3\n");} while (0);
+#define BBOX_WCD_PROBE_MODEM_FAIL do {printk("BBox;%s: register modem state notifier failed\n", __func__); printk("BBox::UEC;2::3\n");} while (0);
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,

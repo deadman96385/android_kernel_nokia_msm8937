@@ -36,7 +36,9 @@
 
 #define XO_CLK_RATE	19200000
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
-
+//SW4-HL-Display-BBox-00+{_20150610
+#define BBOX_PANEL_GPIO_FAIL do {printk("BBox;%s: GPIO fail\n", __func__); printk("BBox::UEC;0::1\n");} while (0);
+//SW4-HL-Display-BBox-00+}_20150610
 /* Master structure to hold all the information about the DSI/panel */
 static struct mdss_dsi_data *mdss_dsi_res;
 
@@ -302,6 +304,18 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		pr_err("%s: failed to disable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 
+#ifdef F_USE_ENP_ENN_GPIO
+				//Pull LOW LCM ENN Pin
+				pr_err("\n\n********************%s,lcm_enn_gpio = %d ,PULL LOW**********************\n\n", __func__, ctrl_pdata->lcm_enn_gpio);
+				gpio_set_value(ctrl_pdata->lcm_enn_gpio, 0);
+				gpio_free(ctrl_pdata->lcm_enn_gpio);
+
+				mdelay(1);
+				//Pull LOW LCM ENP Pin
+				pr_err("\n\n********************%s,lcm_enp_gpio = %d ,PULL LOW**********************\n\n", __func__, ctrl_pdata->lcm_enp_gpio);
+				gpio_set_value(ctrl_pdata->lcm_enp_gpio, 0);
+				gpio_free(ctrl_pdata->lcm_enp_gpio);
+#endif
 end:
 	return ret;
 }
@@ -327,7 +341,26 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 		return ret;
 	}
+#ifdef F_USE_ENP_ENN_GPIO
+				//Pull HIGH LCM ENP Enable Pin
+				pr_err("\n\n********************%s,lcm_enp_gpio = %d ,PULL HIGH**********************\n\n", __func__, ctrl_pdata->lcm_enp_gpio);
+				if (gpio_request(ctrl_pdata->lcm_enp_gpio, "lcm_enp_en")) {
+					pr_err("%s:request lcm_enp gpio failed\n", __func__);
+					//BBOX_LCM_GPIO_FAIL
+					gpio_free(ctrl_pdata->lcm_enp_gpio);
+				}
+				gpio_set_value(ctrl_pdata->lcm_enp_gpio, 1);
+				mdelay(5);
 
+				//Pull HIGH LCM ENN Enable Pin
+				pr_err("\n\n********************%s,lcm_enn_gpio = %d ,PULL HIGH**********************\n\n", __func__, ctrl_pdata->lcm_enn_gpio);
+				if (gpio_request(ctrl_pdata->lcm_enn_gpio, "lcm_enn_en")) {
+					pr_err("%s:request lcm_enn gpio failed\n", __func__);
+					//BBOX_LCM_GPIO_FAIL
+					gpio_free(ctrl_pdata->lcm_enn_gpio);
+				}
+				gpio_set_value(ctrl_pdata->lcm_enn_gpio, 1);
+#endif
 	/*
 	 * If continuous splash screen feature is enabled, then we need to
 	 * request all the GPIOs that have already been configured in the
@@ -4102,7 +4135,19 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
+#ifdef F_USE_ENP_ENN_GPIO
+	ctrl_pdata->lcm_enp_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+				 "qcom,platform-lcm-enp-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcm_enp_gpio))
+			pr_err("%s:%d, lcm enp gpio not specified\n",
+							__func__, __LINE__);
 
+	ctrl_pdata->lcm_enn_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+			 "qcom,platform-lcm-enn-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcm_enn_gpio))
+		pr_err("%s:%d, lcm enn gpio not specified\n",
+						__func__, __LINE__);
+#endif
 	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
 
 		ctrl_pdata->mode_gpio = of_get_named_gpio(

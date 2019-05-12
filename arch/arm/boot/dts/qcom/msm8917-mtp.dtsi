@@ -62,15 +62,16 @@
 			debounce-interval = <15>;
 		};
 
-		vol_up {
-			label = "volume_up";
+		vol_down {
+			label = "volume_down";
 			gpios = <&tlmm 91 0x1>;
 			linux,input-type = <1>;
-			linux,code = <115>;
+			linux,code = <114>;
 			debounce-interval = <15>;
 		};
 	};
 
+#if 0
 	hbtp {
 		compatible = "qcom,hbtp-input";
 		vcc_ana-supply = <&pm8917_l10>;
@@ -82,6 +83,7 @@
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
 	};
+#endif
 };
 
 &flash_led {
@@ -98,11 +100,13 @@
 };
 
 &pmi_haptic{
-	qcom,actuator-type = "lra";
+	qcom,actuator-type = "erm";
 	qcom,wave-play-rate-us = <4165>;
 	qcom,lra-auto-res-mode="qwd";
 	qcom,lra-high-z="opt1";
 	qcom,lra-res-cal-period = <0>;
+	qcom,vmax-mv = <3000>;
+	qcom,ilim-ma = <90>;
 };
 
 &blsp1_uart2 {
@@ -122,7 +126,7 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_720_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_otm1290a_720p_video_hlt_mp>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -132,10 +136,60 @@
 	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
 };
 
-&dsi_truly_720_vid {
+&dsi_otm1290a_720p_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+
+&dsi_otm1290a_720p_video_hlt_evt {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_otm1290a_720p_video_hlt_evt2 {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_otm1290a_720p_video_hlt_dvt {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_otm1290a_720p_video_hlt_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_otm1290a_720p_video_txd_evt2 {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_otm1290a_720p_video_txd_dvt {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_otm1290a_720p_video_txd_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_720p_video_hlt_es {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_720p_video_hlt_cs {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_720p_video_hlt_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_720p_video_inno_es {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_720p_video_inno_cs {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_ili9881c_720p_video_inno_mp {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_truly_720_cmd {

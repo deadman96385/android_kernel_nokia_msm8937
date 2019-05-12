@@ -36,6 +36,10 @@
 /*
  *
  */
+/*fihtdc@20150318, DanielYJ add ACDB dir information to /proc/asound/acdbdir START*/
+#define FIH_ACDB_DIR_SUPPORT
+static DEFINE_MUTEX(snd_card_mutex);
+/*fihtdc@20150318, DanielYJ add ACDB dir information to /proc/asound/acdbdir END*/
 
 #ifdef CONFIG_PROC_FS
 
@@ -54,6 +58,9 @@ int snd_info_check_reserved_words(const char *str)
 		"synth",
 		"pcm",
 		"seq",
+#ifdef FIH_ACDB_DIR_SUPPORT
+		"acdbdir",
+#endif
 		NULL
 	};
 	char **xstr = reserved;
@@ -79,6 +86,10 @@ struct snd_info_private_data {
 
 static int snd_info_version_init(void);
 static int snd_info_version_done(void);
+#ifdef FIH_ACDB_DIR_SUPPORT
+static int snd_info_acdbdir_init(void);
+static int snd_info_acdbdir_done(void);
+#endif
 static void snd_info_disconnect(struct snd_info_entry *entry);
 
 
@@ -564,6 +575,9 @@ int __init snd_info_init(void)
 	snd_minor_info_init();
 	snd_minor_info_oss_init();
 	snd_card_info_init();
+#ifdef FIH_ACDB_DIR_SUPPORT
+	snd_info_acdbdir_init();
+#endif
 	return 0;
 }
 
@@ -573,6 +587,9 @@ int __exit snd_info_done(void)
 	snd_minor_info_oss_done();
 	snd_minor_info_done();
 	snd_info_version_done();
+#ifdef FIH_ACDB_DIR_SUPPORT
+	snd_info_acdbdir_done();
+#endif
 	if (snd_proc_root) {
 #if IS_ENABLED(CONFIG_SND_SEQUENCER)
 		snd_info_free_entry(snd_seq_root);
@@ -1038,5 +1055,50 @@ static int __exit snd_info_version_done(void)
 	snd_info_free_entry(snd_info_version_entry);
 	return 0;
 }
+
+/*fihtdc@20150318, DanielYJ add ACDB dir information to /proc/asound/acdbdir START*/
+#ifdef FIH_ACDB_DIR_SUPPORT
+static struct snd_info_entry *snd_info_acdbdir_entry;
+
+static void snd_info_acdbdir_read(struct snd_info_entry *entry, struct snd_info_buffer *buffer)
+{
+	int idx, count;
+	struct snd_card *card;
+
+	for (idx = count = 0; idx < SNDRV_CARDS; idx++) {
+		mutex_lock(&snd_card_mutex);
+		if ((card = snd_cards[idx]) != NULL) {
+			count++;
+			snd_iprintf(buffer, "%s\n", card->acdbdir);
+		}
+		mutex_unlock(&snd_card_mutex);
+	}
+	if (!count)
+		snd_iprintf(buffer, "--- no acdbdir ---\n");
+}
+
+static int __init snd_info_acdbdir_init(void)
+{
+	struct snd_info_entry *entry;
+
+	entry = snd_info_create_module_entry(THIS_MODULE, "acdbdir", NULL);
+	if (entry == NULL)
+		return -ENOMEM;
+	entry->c.text.read = snd_info_acdbdir_read;
+	if (snd_info_register(entry) < 0) {
+		snd_info_free_entry(entry);
+		return -ENOMEM;
+	}
+	snd_info_acdbdir_entry = entry;
+	return 0;
+}
+
+static int __exit snd_info_acdbdir_done(void)
+{
+	snd_info_free_entry(snd_info_acdbdir_entry);
+	return 0;
+}
+#endif
+/*fihtdc@20150318, DanielYJ add ACDB dir information to /proc/asound/acdbdir END*/
 
 #endif /* CONFIG_PROC_FS */

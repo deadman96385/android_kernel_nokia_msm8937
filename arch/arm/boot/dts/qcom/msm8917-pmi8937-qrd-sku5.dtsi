@@ -37,6 +37,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+#if 0
 &soc {
 	i2c@78b7000 {
 		status = "ok";
@@ -64,7 +65,7 @@
 			focaltech,no-force-update;
 			focaltech,i2c-pull-up;
 			focaltech,group-id = <1>;
-			focaltech,hard-reset-delay-ms = <20>;
+			focaltech,hard-reset-delay-ms = <1>;
 			focaltech,soft-reset-delay-ms = <200>;
 			focaltech,num-max-touches = <5>;
 			focaltech,fw-delay-aa-ms = <30>;
@@ -90,6 +91,7 @@
 		qcom,y-offset = <0>;
 	};
 };
+#endif
 
 &wled {
 	qcom,cons-sync-write-delay-us = <1000>;

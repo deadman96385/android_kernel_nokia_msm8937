@@ -55,6 +55,7 @@
 		};
 	};
 
+#if 0
 	hbtp {
 		compatible = "qcom,hbtp-input";
 		vcc_ana-supply = <&pm8917_l10>;
@@ -66,6 +67,7 @@
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
 	};
+#endif
 
 	usb_detect {
 		compatible = "qcom,gpio-usbdetect";

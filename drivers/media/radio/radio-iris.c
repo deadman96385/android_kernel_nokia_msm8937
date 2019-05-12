@@ -38,6 +38,19 @@
 #include <media/radio-iris.h>
 #include <asm/unaligned.h>
 
+#define BBSLOG
+#ifdef BBSLOG
+#define FM_PROBE_ERROR do {printk("BBox;%s: Power on failure\n", __func__); printk("BBox::UEC;15::0\n");} while(0)
+#define FM_HCI_ERROR do {printk("BBox;%s: HCI cmd transfer failure\n", __func__); printk("BBox::UEC;15::1\n");} while(0)
+#define FM_SET_LOW_POWER_MODE_ERROR do {printk("BBox;%s: Set low power mode failure\n", __func__); printk("BBox::UEC;15::2\n");} while(0)
+#define FM_SET_FREQUENCY_ERROR do {printk("BBox;%s: Set frequency failure\n", __func__); printk("BBox::UEC;15::3\n");} while(0)
+#define FM_DO_CALIBRATION_ERROR do {printk("BBox;%s: Do Calibration failure\n", __func__); printk("BBox::UEC;15::4\n");} while(0)
+#define FM_SEARCH_ERROR do {printk("BBox;%s: FM srch failure\n", __func__); printk("BBox::UEC;15::5\n");} while(0)
+#define FM_STATE_ERROR do {printk("BBox;%s: FM IRIS_STATE faliure\n", __func__); printk("BBox::UEC;15::6\n");} while(0)
+#define FM_RDS_ERROR do {printk("BBox;%s: FM RDS faliure\n", __func__); printk("BBox::UEC;15::7\n");} while(0)
+#define FM_ANTENNA_ERROR do {printk("BBox;%s: FM Antenna faliure\n", __func__); printk("BBox::UEC;15::8\n");} while(0)
+#endif
+
 static unsigned int rds_buf = 100;
 static int oda_agt;
 static int grp_mask;

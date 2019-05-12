@@ -47,6 +47,9 @@
 #include "thermal_hwmon.h"
 
 #define THERMAL_UEVENT_DATA "type"
+/* Black Box */
+#define BBOX_PMIC_DIE_TEMP do {printk("BBox;%s: PMIC Die temp reached\n", __func__); printk("BBox::UEC;17::3\n");} while (0);
+#define BBOX_THERMAL_HWMON_FAIL do {printk("BBox;%s: Add hwmon failed\n", __func__); printk("BBox::UEC;22::5\n");} while (0);
 
 MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");

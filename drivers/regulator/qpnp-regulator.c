@@ -41,6 +41,9 @@ enum {
 	QPNP_VREG_DEBUG_OCP		= BIT(5), /* Show VS OCP IRQ events */
 };
 
+#define BBOX_REGULATOR_PROBE_FAIL do {printk("BBox;%s: Probe fail\n", __func__); printk("BBox::UEC;17::0\n");} while (0)
+#define BBOX_REGULATOR_SETV_FAIL do {printk("BBox;%s: Set voltage fail\n", __func__); printk("BBox::UEC;17::2\n");} while (0)
+
 static int qpnp_vreg_debug_mask;
 module_param_named(
 	debug_mask, qpnp_vreg_debug_mask, int, S_IRUSR | S_IWUSR

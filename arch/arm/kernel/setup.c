@@ -59,6 +59,9 @@
 #include <asm/virt.h>
 
 #include "atags.h"
+#ifdef CONFIG_FIH_HWCONFIG
+#include <fih/hwid.h>
+#endif
 
 
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
@@ -1006,6 +1009,10 @@ static int __init topology_init(void)
 		cpuinfo->cpu.hotpluggable = 1;
 		register_cpu(&cpuinfo->cpu, cpu);
 	}
+
+        #ifdef CONFIG_FIH_HWCONFIG
+        fih_hwid_setup();
+        #endif
 
 	return 0;
 }
