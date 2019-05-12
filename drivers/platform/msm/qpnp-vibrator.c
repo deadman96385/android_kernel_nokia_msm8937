@@ -28,6 +28,10 @@
 #define QPNP_VIB_MAX_LEVEL		31
 #define QPNP_VIB_MIN_LEVEL		12
 
+/* Black Box */
+#define BBOX_VIBRATOR_PROBE_FAIL do {printk("BBox;%s: Probe fail\n", __func__); printk("BBox::UEC;19::0\n");} while (0);
+#define BBOX_VIBRATOR_ENABLE_PWM_FAIL do {printk("BBox;%s: Enable PWM fail\n", __func__); printk("BBox::UEC;19::5\n");} while (0);
+
 #define QPNP_VIB_DEFAULT_TIMEOUT	15000
 #define QPNP_VIB_DEFAULT_VTG_LVL	3100
 
@@ -66,7 +70,6 @@ struct qpnp_vib {
 	int timeout;
 	struct mutex lock;
 };
-
 static int qpnp_vib_read_u8(struct qpnp_vib *vib, u8 *data, u16 reg)
 {
 	int rc;
@@ -126,6 +129,7 @@ static int qpnp_vibrator_config(struct qpnp_vib *vib)
 						vib->pwm_info.period_us);
 		if (rc < 0) {
 			dev_err(&vib->spmi->dev, "vib pwm config failed\n");
+			BBOX_VIBRATOR_ENABLE_PWM_FAIL;
 			pwm_free(vib->pwm_info.pwm_dev);
 			return -ENODEV;
 		}
@@ -341,6 +345,7 @@ static int qpnp_vibrator_probe(struct spmi_device *spmi)
 	vib_resource = spmi_get_resource(spmi, 0, IORESOURCE_MEM, 0);
 	if (!vib_resource) {
 		dev_err(&spmi->dev, "Unable to get vibrator base address\n");
+		BBOX_VIBRATOR_PROBE_FAIL;
 		return -EINVAL;
 	}
 	vib->base = vib_resource->start;
@@ -348,12 +353,14 @@ static int qpnp_vibrator_probe(struct spmi_device *spmi)
 	rc = qpnp_vib_parse_dt(vib);
 	if (rc) {
 		dev_err(&spmi->dev, "DT parsing failed\n");
+		BBOX_VIBRATOR_PROBE_FAIL;
 		return rc;
 	}
 
 	rc = qpnp_vibrator_config(vib);
 	if (rc) {
 		dev_err(&spmi->dev, "vib config failed\n");
+		BBOX_VIBRATOR_PROBE_FAIL;
 		return rc;
 	}
 
@@ -368,11 +375,9 @@ static int qpnp_vibrator_probe(struct spmi_device *spmi)
 	vib->timed_dev.enable = qpnp_vib_enable;
 
 	dev_set_drvdata(&spmi->dev, vib);
-
 	rc = timed_output_dev_register(&vib->timed_dev);
 	if (rc < 0)
 		return rc;
-
 	return rc;
 }
 
