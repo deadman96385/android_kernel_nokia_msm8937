@@ -240,7 +240,16 @@ static uint16_t msm_sensor_id_by_mask(struct msm_sensor_ctrl_t *s_ctrl,
 int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
+	int gc = 0;
+	int info_index;
+	int addr;
+
 	uint16_t chipid = 0;
+	uint16_t s5k_read = 0;
+	uint16_t gc_read[12] = {0};
+	uint8_t flag_info;
+	uint16_t gc_id;
+
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct msm_camera_slave_info *slave_info;
 	const char *sensor_name;
@@ -269,13 +278,159 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	pr_debug("%s: read id: 0x%x expected id 0x%x:\n",
-			__func__, chipid, slave_info->sensor_id);
-	if (msm_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
-		pr_err("%s chip id %x does not match %x\n",
+
+	if(chipid ==0x5025){
+
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xfe, 0x00,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xfe, 0x00,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xfe, 0x00,
+						MSM_CAMERA_I2C_BYTE_DATA);
+
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xf7, 0x01,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xf9, 0x00,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xfa, 0xb0,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xfc, 0x2e,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xd4, 0x80,
+						MSM_CAMERA_I2C_BYTE_DATA);
+
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xd4, 0x84,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xd5, 0x00,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xf3, 0x20,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0xf3, 0x88,
+						MSM_CAMERA_I2C_BYTE_DATA);
+						msleep(1);
+
+					for(gc = 0; gc < 12; gc++) {
+						//msleep(1);
+
+				    rc =  sensor_i2c_client->i2c_func_tbl->i2c_read(
+							sensor_i2c_client, 0xd7, &gc_read[gc],
+							MSM_CAMERA_I2C_BYTE_DATA);
+						if (rc < 0) {
+							pr_err("%s:gc_read read failed\n",
+								__func__);
+						}
+                        else{
+                            pr_err("gc_read[%d]==0x%x\n",gc,gc_read[gc]);
+                        }
+                    }
+
+					flag_info = (uint8_t)(gc_read[0]);
+						if (0x10 == (flag_info & 0x30))
+							info_index = 0;
+					else if (0x40 == (flag_info & 0xC0))
+							info_index = 1;
+					else {
+					    pr_err("gc5025 otp info is Empty/Invalid!");
+		            return -1;
+	    }
+
+	    addr = 1 + info_index * 8;
+        gc_id = gc_read[addr];
+
+	    pr_err("%s: read id: 0x%x slave_info id 0x%x:  gc_id==0x%x :\n",
+			__func__, chipid, slave_info->sensor_id,gc_id);
+       if(gc_id==0x06||gc_id ==0x15||gc_id ==0x11){
+	        if ((msm_sensor_id_by_mask(s_ctrl, chipid) != 0x5025)||(gc_id!=slave_info->sensor_id)) {
+		    pr_err("%s chip id %x does not match %x\n",
 				__func__, chipid, slave_info->sensor_id);
-		return -ENODEV;
-	}
+		    return -ENODEV;
+            }
+       }else{
+
+	    pr_err("%s: other gc5025 read id: 0x%x slave_info id 0x%x:  gc_id==0x%x :\n",
+			__func__, chipid, slave_info->sensor_id,gc_id);
+            if ((msm_sensor_id_by_mask(s_ctrl, chipid) != 0x5025)) {
+		    pr_err("%s chip id %x does not match %x\n",
+				__func__, chipid, slave_info->sensor_id);
+		    return -ENODEV;
+	        }
+      }
+    }
+    if(chipid==0x487B){
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0x0100, 0x01,
+						MSM_CAMERA_I2C_WORD_DATA);
+			msleep(50);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0x0A02, 0x17,
+						MSM_CAMERA_I2C_BYTE_DATA);
+				sensor_i2c_client->i2c_func_tbl->i2c_write(
+						sensor_i2c_client, 0x0A00, 0x01,
+						MSM_CAMERA_I2C_BYTE_DATA);
+			msleep(50);
+
+		//read flag ID data
+
+
+
+
+
+				do
+				{
+				    msleep(1);
+				    rc =  sensor_i2c_client->i2c_func_tbl->i2c_read(
+							sensor_i2c_client, 0x0A01, &s5k_read,
+							MSM_CAMERA_I2C_BYTE_DATA);
+
+				    if (rc < 0) {
+				    pr_err("%s: 4h7_otp read failed\n",__func__);
+				    }
+                    else{
+                        pr_err("%s: sensorid5kaddr==0x%x,data==0x%x\n",__func__,0x0A01,s5k_read);
+                    }
+				}while ((s5k_read & 0x01)  !=1);
+
+				    rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+							sensor_i2c_client, 0x0A05, &s5k_read,MSM_CAMERA_I2C_BYTE_DATA);
+				    if (rc < 0) {
+							pr_err("%s: read failed\n",__func__);
+						}
+                    else{
+                        pr_err("%s: sensorids5kaddr==0x%x,data==0x%x\n",__func__,0x0A05,s5k_read);
+
+                }
+	pr_err("%s: read id: 0x%x expected id 0x%x:\n",
+			__func__, chipid, slave_info->sensor_id);
+    if(s5k_read==0x01||s5k_read==0x05)
+    {
+		if ((msm_sensor_id_by_mask(s_ctrl, chipid) != 0x487B)||(s5k_read!=slave_info->sensor_id)) {
+			pr_err("%s chip id %x does not match %x\n",
+				__func__, chipid, slave_info->sensor_id);
+			return -ENODEV;
+		}
+    }else{
+        pr_err("%s: other s5k4h7 read id: 0x%x expected id 0x%x:s5k_read==0x%x:\n",
+			__func__, chipid, slave_info->sensor_id,s5k_read);
+        if ((msm_sensor_id_by_mask(s_ctrl, chipid) != 0x487B)) {
+			pr_err("%s chip id %x does not match %x\n",
+				__func__, chipid, slave_info->sensor_id);
+			return -ENODEV;
+		    }
+
+	    }
+    }
 	return rc;
 }
 

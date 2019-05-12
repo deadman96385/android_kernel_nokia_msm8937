@@ -18,6 +18,9 @@
 #include "msm_sd.h"
 #include "msm_cci.h"
 #include "msm_eeprom.h"
+#include <linux/kprobes.h>
+#include <asm/traps.h>
+#include <linux/delay.h>
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -66,8 +69,12 @@ static int msm_get_read_mem_size
 			return -EINVAL;
 		}
 		for (i = 0; i < eeprom_map->memory_map_size; i++) {
-			if (eeprom_map->mem_settings[i].i2c_operation ==
-				MSM_CAM_READ) {
+			if ((eeprom_map->mem_settings[i].i2c_operation ==
+				MSM_CAM_READ) ||
+				(eeprom_map->mem_settings[i].i2c_operation ==  /*add for  gc5025a*/
+				MSM_CAM_READ_GC5025A) || (eeprom_map->mem_settings[i].i2c_operation ==  /*add for gc5025 */
+				MSM_CAM_READ_GC5025) || (eeprom_map->mem_settings[i].i2c_operation ==  /*add for   s5k4h7 */
+				MSM_CAM_READ_S5K4H7)) {
 				size += eeprom_map->mem_settings[i].reg_data;
 			}
 		}
@@ -334,11 +341,20 @@ ERROR:
   *
   * Returns success or failure
   */
+
+
+
 static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_eeprom_memory_map_array *eeprom_map_array)
 {
-	int rc =  0, i, j;
+	int rc =  0, i, j, gc,s5k;
 	uint8_t *memptr;
+
+	uint16_t gc_read = 0;
+	uint16_t s5k_read = 0;
+	uint16_t s5k_addr = 0x0A04;
+
+
 	struct msm_eeprom_mem_map_t *eeprom_map;
 
 	e_ctrl->cal_data.mapdata = NULL;
@@ -370,6 +386,7 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 		for (i = 0; i < eeprom_map->memory_map_size; i++) {
 			switch (eeprom_map->mem_settings[i].i2c_operation) {
 			case MSM_CAM_WRITE: {
+
 				e_ctrl->i2c_client.addr_type =
 					eeprom_map->mem_settings[i].addr_type;
 				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
@@ -418,9 +435,128 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 				memptr += eeprom_map->mem_settings[i].reg_data;
 			}
 			break;
+			case MSM_CAM_READ_GC5025:
+			case MSM_CAM_READ_GC5025A: { /*add for gc5025 & gc5025a*/
+				e_ctrl->i2c_client.addr_type = 1;
+				if(1 == eeprom_map->mem_settings[i].reg_data) {
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xd4,
+						0x80 | ((eeprom_map->mem_settings[i].reg_addr >> 8) & 0xff),
+						eeprom_map->mem_settings[i].data_type);
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xd5,
+						eeprom_map->mem_settings[i].reg_addr & 0xff,
+						eeprom_map->mem_settings[i].data_type);
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xf3, 0x20,
+						eeprom_map->mem_settings[i].data_type);
+					msleep(eeprom_map->mem_settings[i].delay);
+					rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+						&(e_ctrl->i2c_client), 0xd7, &gc_read,
+						eeprom_map->mem_settings[i].data_type);
+					*memptr = (uint8_t)gc_read;
+					memptr++;
+				}
+				else {
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xd4,
+						0x80 | ((eeprom_map->mem_settings[i].reg_addr >> 8) & 0xff),
+						eeprom_map->mem_settings[i].data_type);
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xd5,
+						eeprom_map->mem_settings[i].reg_addr & 0xff,
+						eeprom_map->mem_settings[i].data_type);
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xf3, 0x20,
+						eeprom_map->mem_settings[i].data_type);
+					e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0xf3, 0x88,
+						eeprom_map->mem_settings[i].data_type);
+						msleep(eeprom_map->mem_settings[i].delay);
+					for(gc = 0; gc < eeprom_map->mem_settings[i].reg_data; gc++) {
+						msleep(eeprom_map->mem_settings[i].delay);
+						rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+							&(e_ctrl->i2c_client), 0xd7, &gc_read,
+							eeprom_map->mem_settings[i].data_type);
+						if (rc < 0) {
+							pr_err("%s: read failed\n",
+								__func__);
+							goto clean_up;
+						}
+						*memptr = (uint8_t)gc_read;
+						memptr++;
+					}
+				}
+			}
+			break;
+
+			case MSM_CAM_READ_S5K4H7: { /*add for gc5025 & gc5025a*/
+				do
+				{
+				    msleep(1);
+				    rc =  e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+							&(e_ctrl->i2c_client), 0x0A01, &s5k_read,
+							eeprom_map->mem_settings[i].data_type);
+				    if (rc < 0) {
+				    pr_err("%s: 4h7_otp read failed\n",__func__);
+				    }
+				}while ((s5k_read & 0x01)  !=1);
+
+				for(s5k = 0;s5k<64;s5k++)
+				{
+				    rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+							&(e_ctrl->i2c_client), s5k_addr, &s5k_read,eeprom_map->mem_settings[i].data_type);
+				    if (rc < 0) {
+							pr_err("%s: read failed\n",__func__);
+				            goto clean_up;
+						}
+				s5k_addr++;
+				*memptr = (uint8_t)s5k_read;
+				memptr++;
+
+				}
+
+				//read af data
+				s5k_addr = 0x0A04;
+				e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0x0A02, 0x16,
+						eeprom_map->mem_settings[i].data_type);
+				do
+				{
+				    msleep(1);
+				    rc =  e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+							&(e_ctrl->i2c_client), 0x0A01, &s5k_read,
+							eeprom_map->mem_settings[i].data_type);
+				    if (rc < 0) {
+				    pr_err("%s: 4h7_otp read failed\n",__func__);
+				    }
+				}while ((s5k_read & 0x01)  !=1);
+
+				for(s5k = 0;s5k<15;s5k++)
+				{
+				    rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+							&(e_ctrl->i2c_client), s5k_addr, &s5k_read,eeprom_map->mem_settings[i].data_type);
+				    if (rc < 0) {
+							pr_err("%s: read failed\n",__func__);
+				            goto clean_up;
+						}
+				s5k_addr++;
+				*memptr = (uint8_t)s5k_read;
+				memptr++;
+				}
+
+				e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&(e_ctrl->i2c_client), 0x0A00, 0x00,
+						eeprom_map->mem_settings[i].data_type);
+
+
+			}
+
+			break;
+
 			default:
-				pr_err("%s: %d Invalid i2c operation LC:%d\n",
-					__func__, __LINE__, i);
+				pr_err("%s: %d Invalid i2c operation LC:%d, op: %d\n",
+					__func__, __LINE__, i, eeprom_map->mem_settings[i].i2c_operation);
 				return -EINVAL;
 			}
 		}
