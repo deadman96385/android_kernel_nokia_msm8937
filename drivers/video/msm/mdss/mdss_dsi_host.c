@@ -30,15 +30,19 @@
 #include "mdss_smmu.h"
 #include "mdss_dsi_phy.h"
 
+#include "../../../fih/fih_lcm.h"
+
 #define VSYNC_PERIOD 17
 #define DMA_TX_TIMEOUT 200
 #define DMA_TPG_FIFO_LEN 64
 
 #define FIFO_STATUS	0x0C
 #define LANE_STATUS	0xA8
-
+//SW4-HL-Display-BBox-00+{_20150610
+/* Black Box */
+#define BBOX_PANEL_MIPI_FAIL do {printk("BBox;%s: MIPI fail\n", __func__); printk("BBox::UEC;0::0\n");} while (0);
 #define MDSS_DSI_INT_CTRL	0x0110
-
+//SW4-HL-Display-BBox-00+}_20150610
 #define CEIL(x, y)		(((x) + ((y) - 1)) / (y))
 
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
@@ -2109,11 +2113,13 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 			pr_warn("%s: dma tx done but irq not triggered\n",
 				__func__);
+	//SW4-HL-Display-BBox-00*{_20150610
 		} else {
+		BBOX_PANEL_MIPI_FAIL
 			ret = -ETIMEDOUT;
 		}
 	}
-
+	//SW4-HL-Display-BBox-00*}_20150610
 	if (!IS_ERR_VALUE(ret))
 		ret = tp->len;
 
@@ -2929,11 +2935,14 @@ static int dsi_event_thread(void *data)
 	return 0;
 }
 
+int ack_err_count = 0;
 bool mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 status;
 	unsigned char *base;
 	bool ret = false;
+	char err_count[32] = {0};
+	char err_status[32] = {0};
 
 	base = ctrl->ctrl_base;
 
@@ -2943,6 +2952,13 @@ bool mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(base + 0x0068, status);
 		/* Writing of an extra 0 needed to clear error bits */
 		MIPI_OUTP(base + 0x0068, 0);
+
+		ack_err_count++;
+		sprintf(err_count, "0x%x\n", ack_err_count);
+		sprintf(err_status, "0x%x\n", status);
+		fih_awer_cnt_set(err_count);
+		fih_awer_status_set(err_status);
+
 		/*
 		 * After bta done, h/w may have a fake overflow and
 		 * that overflow may further cause ack_err about 3 ms
