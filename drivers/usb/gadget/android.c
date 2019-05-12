@@ -90,6 +90,8 @@ static const char longname[] = "Gadget Android";
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
+#define BBOX_USB_TRAN_FAILED do {printk("BBox::%s: BBOX_USB_TRAN_FAILED\n", __func__); printk("BBox::UEC;3::0\n");} while(0);
+#define BBOX_USB_CONFIG_FAILED do {printk("BBox::%s: BBOX_USB_CONFIG_FAILED\n", __func__);printk("BBox::UEC;3::2\n");} while (0);
 
 #define ANDROID_DEVICE_NODE_NAME_LENGTH 11
 /* f_midi configuration */
@@ -2850,6 +2852,8 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	}
 
 	fsg_mod_data.removable[0] = true;
+	fsg_mod_data.cdrom[0] = true;//FihtdcCode@Alan,add for CD-ROM
+  	fsg_mod_data.ro[0] = true;//FihtdcCode@Alan,add for CD-ROM
 	fsg_config_from_params(&m_config, &fsg_mod_data, fsg_num_buffers);
 	fsg_opts = fsg_opts_from_func_inst(config->f_ms_inst);
 	ret = fsg_common_set_num_buffers(fsg_opts->common, fsg_num_buffers);
@@ -3785,6 +3789,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 			msleep(100);
 		err = android_enable(dev);
 		if (err < 0) {
+			printk("BBox::UEC;3::0\n"); // FIHTDC, IdaChiang, add for bbs log
 			pr_err("%s: android_enable failed\n", __func__);
 			dev->connected = 0;
 			dev->enabled = true;
