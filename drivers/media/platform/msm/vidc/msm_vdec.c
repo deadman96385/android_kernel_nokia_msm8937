@@ -1490,9 +1490,10 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		 * than 4 subframes requires more than 4
 		 * reference frames to decode.
 		 */
-		if (inst->fmts[OUTPUT_PORT].fourcc ==
-				V4L2_PIX_FMT_VP9 &&
-				*num_buffers < MIN_NUM_OUTPUT_BUFFERS_VP9)
+		//fix E2M-5700 STS failure: android.security.cts.StagefrightTest#testStagefright_bug_34896431
+		if (((inst->fmts[OUTPUT_PORT].fourcc ==  V4L2_PIX_FMT_VP9) ||
+			(inst->fmts[OUTPUT_PORT].fourcc == V4L2_PIX_FMT_HEVC)) &&
+			*num_buffers < MIN_NUM_OUTPUT_BUFFERS_VP9 )
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS_VP9;
 
 		for (i = 0; i < *num_planes; i++) {

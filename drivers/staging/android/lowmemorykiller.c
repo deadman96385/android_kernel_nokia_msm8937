@@ -492,6 +492,15 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			    tasksize <= selected_tasksize)
 				continue;
 		}
+
+                /*EVW-3936 start*/
+                if (!strcmp(p->comm, "zygote"))
+                {
+                   //p->signal->oom_score_adj = -1000;
+                   continue;
+                }
+                /*EVW-3936 end*/
+
 		selected = p;
 		selected_tasksize = tasksize;
 		selected_oom_score_adj = oom_score_adj;
