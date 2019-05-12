@@ -33,19 +33,36 @@
 				<0x0 0x8 0x5>;
 			interrupt-names = "kpdpwr", "resin",
 				"resin-bark", "kpdpwr-resin-bark";
-			qcom,pon-dbc-delay = <15625>;
-			qcom,system-reset;
+			qcom,pon-dbc-delay = <15625>;		// Debounce
+			qcom,s3-debounce = <128>;		// Debounce
+			qcom,system-reset;			// Specify "pon" to restart the system
+			qcom,s3-src = "kpdpwr-and-resin";	// Set as combination key to start
 
+			//KPDPWR(0)
 			qcom,pon_1 {
-				qcom,pon-type = <0>;
+				qcom,pon-type = <0>;		// supports KPDPWR(0), RESIN(1) and CBLPWR(2)
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				qcom,support-reset = <0>;
 			};
 
+			//RESIN(1)
 			qcom,pon_2 {
 				qcom,pon-type = <1>;
 				qcom,pull-up = <1>;
-				linux,code = <114>;
+				linux,code = <115>;
+				qcom,support-reset = <0>;
+			};
+
+			//CBLPWR(2)
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <4>;
+				qcom,pull-up = <1>;
+				qcom,use-bark;
+				qcom,support-reset = <1>;
 			};
 		};
 
@@ -273,15 +290,15 @@
 			};
 
 			chan@11 {
-				label = "pa_therm1";
+				label = "batid";
 				reg = <0x11>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "ratiometric";
-				qcom,scale-function = <2>;
-				qcom,hw-settle-time = <2>;
-				qcom,fast-avg-setup = <0>;
-				qcom,vadc-thermal-node;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <1>;
+				qcom,fast-avg-setup = <2>;
+				#qcom,vadc-thermal-node;
 			};
 
 			chan@32 {

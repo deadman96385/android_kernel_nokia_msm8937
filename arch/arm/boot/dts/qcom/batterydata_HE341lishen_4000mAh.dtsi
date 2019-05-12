@@ -1,0 +1,50 @@
+
+qcom,3278152_fih_he341lishen_4000mah_averaged_masterslave_jan22nd2018 {
+	/* #3278152_FIH_HE341lishen_4000mAh_averaged_MasterSlave_Jan22nd2018*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <200>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "3278152_fih_he341lishen_4000mah_averaged_masterslave_jan22nd2018";
+	qcom,chg-rslow-comp-c1 = <3226362>;
+	qcom,chg-rslow-comp-c2 = <4977300>;
+	qcom,chg-rs-to-rslow = <954347>;
+	qcom,chg-rslow-comp-thr = <0xAC>;
+	qcom,fg-cc-cv-threshold-mv = <4340>;
+	qcom,checksum = <0x051A>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 BD 83 58 76 
+		 1D 7B A3 6F 
+		 3B 83 6E 73 
+		 2D 84 D6 80 
+		 EC 81 4C A0 
+		 79 C4 59 D2 
+		 72 0F E6 83 
+		 5E 7C 81 80 
+		 CE 75 33 83 
+		 D7 79 F0 87 
+		 55 88 22 82 
+		 21 A0 E2 C4 
+		 F9 D3 69 0D 
+		 DE 0F B4 59 
+		 14 70 EE FC 
+		 AF 44 4D 3D 
+		 CA 41 00 00 
+		 01 4C 7A 40 
+		 5F 28 00 00 
+		 00 00 00 00 
+		 00 00 00 00 
+		 16 70 BB 6A 
+		 9D 70 3F 89 
+		 09 76 D0 6B 
+		 84 62 0F 81 
+		 13 74 D5 68 
+		 56 7C 32 A2 
+		 1D 5B 60 A1 
+		 5E A0 71 0C 
+		 28 00 FF 36 
+		 F0 11 30 03 
+		 00 00 00 0C 
+	];
+};

@@ -11,11 +11,11 @@
  * GNU General Public License for more details.
  */
 
-#include "msm-pmi8940.dtsi"
-#include "msm8917-mtp.dtsi"
+//#include "msm-pmi8940-costdown.dtsi"
+#include "msm8917-mtp-costdown.dtsi"
 #include "components/memmap/memmap_8917_v0.dtsi"
 
-&soc {
+/*&soc {
 	led_flash0: qcom,camera-flash {
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
@@ -24,7 +24,7 @@
 		qcom,torch-source = <&pmi8940_torch0 &pmi8940_torch1>;
 		qcom,switch-source = <&pmi8940_switch>;
 	};
-};
+};*/
 
 // ADD start charging hangxing.jiang 2018.01.03
 /{
@@ -39,6 +39,7 @@
 	};
 };
 
+/*
 &pmi8940_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 };
@@ -57,6 +58,7 @@
 &ibb_regulator {
 	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
+*/
 
 &dsi_panel_pwr_supply {
 	qcom,panel-supply-entry@2 {

@@ -11,6 +11,27 @@
  * GNU General Public License for more details.
  */
 
+&i2c_2 {
+                lm36010_led_flash0@64 {
+                compatible = "qcom,i2c_leds-lm36010";
+		reg =<0x64>;
+        };
+};
+&soc {
+	led_flash0: qcom,led-flash@64 {
+		cell-index = <0>;
+		compatible = "qcom,leds-lm36010";
+		qcom,flash-type = <1>;
+                gpios = <&tlmm 33 0>,
+                        <&tlmm 34 0>;
+                qcom,gpio-flash-en = <0>;
+                qcom,gpio-flash-now = <1>;
+                qcom,gpio-req-tbl-num = <0 1>;
+                qcom,gpio-req-tbl-flags = <0 0>;
+                qcom,gpio-req-tbl-label = "FLASH_EN",
+                        "FLASH_NOW";
+	};
+};
 &cci {
 	actuator0: qcom,actuator@0 {
 		cell-index = <0>;

@@ -13,9 +13,13 @@
 
 qcom,ascent-3450mah {
 	/* #Ascent_860_82209_0000_3450mAh_averaged_MasterSlave_Sept28th2015*/
-	qcom,max-voltage-uv = <4350000>;
-	qcom,nom-batt-capacity-mah = <3450>;
-	qcom,batt-id-kohm = <60>;
+// MOD start battert_data hangxing.jiang 2018.01.16
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4100>;
+// MOD end battert_data hangxing.jiang 2018.01.16
+// MOD start battery_id hangxing.jiang 2018.01.09
+	qcom,batt-id-kohm = <200>;
+// MOD end battery_id hangxing.jiang 2018.01.09
 	qcom,battery-beta = <3435>;
 	qcom,battery-type = "ascent_3450mah";
 	qcom,chg-rslow-comp-c1 = <6834679>;

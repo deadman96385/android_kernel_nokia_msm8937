@@ -306,7 +306,7 @@
 	};
 
 	int_codec: sound {
-		status = "disabled";
+		status = "okay";
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8952-snd-card-mtp";
 		reg = <0xc051000 0x4>,

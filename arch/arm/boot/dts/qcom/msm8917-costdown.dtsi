@@ -83,25 +83,25 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85f00000 0x0 0x900000>;
+			reg = <0x0 0x85b00000 0x0 0xd00000>;
 		};
 
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86800000 0x0 0x4b00000>;
+			reg = <0x0 0x86800000 0x0 0x5000000>;
 		};
 
 		adsp_fw_mem: adsp_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8b300000 0x0 0x1100000>;
+			reg = <0x0 0x8b800000 0x0 0x1100000>;
 		};
 
 		wcnss_fw_mem: wcnss_fw_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8c400000 0x0 0x700000>;
+			reg = <0x0 0x8c900000 0x0 0x700000>;
 		};
 
 		venus_mem: venus_region@0 {
@@ -360,7 +360,7 @@
 
 		sensor_information11: qcom,sensor-information-11 {
 			qcom,sensor-type = "adc";
-			qcom,sensor-name = "batid";
+			qcom,sensor-name = "pa_therm1";
 		};
 
 		sensor_information12: qcom,sensor-information-12 {
@@ -862,7 +862,7 @@
 		HSUSB_1p8-supply = <&pm8917_l7>;
 		HSUSB_3p3-supply = <&pm8917_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
-		vbus_otg-supply = <&smbcharger_charger_otg>;
+		//vbus_otg-supply = <&smbcharger_charger_otg>;
 		qcom,hsusb-otg-phy-init-seq =
 			<0xBB 0x81 0xFFFFFFFF>;
 
@@ -877,7 +877,6 @@
 		qcom,axi-prefetch-enable;
 		qcom,enable-sdp-typec-current-limit;
 		qcom,hsusb-otg-delay-lpm;
-		qcom,floated-charger-enable = <1>;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <3>;
@@ -1396,9 +1395,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85f00000 {
+	qcom_seecom: qseecom@85b00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85f00000 0x400000>;
+		reg = <0x85b00000 0x800000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
