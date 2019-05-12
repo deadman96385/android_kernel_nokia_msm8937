@@ -123,6 +123,12 @@
 
 #define QPNP_VM_BMS_DEV_NAME		"qcom,qpnp-vm-bms"
 
+/* bbs log*/
+#define QPNPBMS_PROBE_ERROR do {printk("BBox;%s: Probe error\n", __func__); printk("BBox::UEC;12::0\n");} while (0)
+#define QPNPBMS_BATTERY_REMOVED_ERROR do {printk("BBox;%s: Battery removed error\n", __func__); printk("BBox::UEC;12::1\n");} while (0)
+#define QPNPFG_BATTERY_SHUTDOWN_TEMP do {printk("BBox;%s: Battery temp reach shutdown temp\n", __func__); printk("BBox::UEC;49::1\n");} while (0)
+#define QPNPFG_BATTERY_VOLTAGE_LOW do {printk("BBox;%s: Voltage low\n", __func__); printk("BBox::UEC;49::3\n");} while (0)
+
 /* indicates the state of BMS */
 enum {
 	IDLE_STATE,
@@ -838,6 +844,9 @@ static int backup_charge_cycle(struct qpnp_bms_chip *chip)
 	pr_debug("%s storing charge_increase=%u charge_cycle=%u\n",
 			rc ? "Unable to" : "Sucessfully",
 			chip->charge_increase, chip->charge_cycles);
+
+	printk("BBox::UPD;49::%d\n", chip->batt_data->fcc); // FIHTDC, IdaChiang, add for BBS log
+	printk("BBox::UPD;50::%d::%d\n", chip->charge_cycles, chip->batt_data->fcc); // FIHTDC, IdaChiang, add for BBS log
 
 	return rc;
 }

@@ -130,6 +130,11 @@
 #define QPNP_CHARGER_DEV_NAME	"qcom,qpnp-linear-charger"
 
 /* usb_interrupts */
+/* bbs log */
+#define QPNPCHG_PROBE_ERROR do {printk("BBox;%s: Probe error\n", __func__); printk("BBox::UEC;11::0\n");} while (0)
+#define QPNPCHG_BATTERY_MISSING_ERROR do {printk("BBox;%s: Battery missing\n", __func__); printk("BBox::UEC;11::2\n");} while (0)
+#define CHARGER_READ_ERROR	do {printk("BBox;%s: charger read failed\n", __func__); printk("BBox::UEC;11::3\n");} while (0)
+#define CHARGER_WRITE_ERROR	do {printk("BBox;%s: charger write failed\n", __func__); printk("BBox::UEC;11::4\n");} while (0)
 
 struct qpnp_lbc_irq {
 	int		irq;

@@ -33,6 +33,9 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 
+#include "../../../drivers/fih/fih_rere.h"  /* FIH, to support fih reboot command */
+#include "../../../drivers/fih/fih_secboot.h"
+
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
@@ -60,7 +63,8 @@ static void scm_disable_sdi(void);
 * There is no API from TZ to re-enable the registers.
 * So the SDI cannot be re-enabled when it already by-passed.
 */
-static int download_mode = 1;
+// fihtdc, CurtisHCChi, 20151002, disable download_mode by default
+static int download_mode = 1/*1*/;
 #else
 static const int download_mode;
 #endif
@@ -68,6 +72,7 @@ static const int download_mode;
 #ifdef CONFIG_MSM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
+#define CONFIG_FIH_EDL
 
 static int in_panic;
 static void *dload_mode_addr;
@@ -92,9 +97,12 @@ struct reset_attribute {
 	static struct reset_attribute reset_attr_##_name = \
 			__ATTR(_name, _mode, _show, _store)
 
+static int __init oem_dload_set(char *str);//20151105, AlanChiu@FIH ramdump set by fastboot 
+
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
-
+__setup("download_mode=", oem_dload_set);//20151105, AlanChiu@FIH ramdump set by fastboot oem command			
+			
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
@@ -152,8 +160,10 @@ static bool get_dload_mode(void)
 	return dload_mode_enabled;
 }
 
+#ifdef CONFIG_FIH_EDL  // enable edl model for porting temp
 static void enable_emergency_dload_mode(void)
 {
+#if 1//def support_qcom_edl
 	int ret;
 
 	if (emergency_dload_mode_addr) {
@@ -175,7 +185,11 @@ static void enable_emergency_dload_mode(void)
 	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
+#else
+  pr_err("dload mode is not enabled on target\n");
+#endif
 }
+#endif
 
 static int dload_set(const char *val, struct kernel_param *kp)
 {
@@ -197,6 +211,24 @@ static int dload_set(const char *val, struct kernel_param *kp)
 
 	return 0;
 }
+//20151105, AlanChiu@FIH ramdump set by fastboot oem command
+static int __init oem_dload_set(char *str)
+{
+    int old_val = download_mode; 
+    get_option(&str, &download_mode);
+
+
+    if(download_mode != 0 && download_mode != 1){
+        download_mode = old_val;
+        return -EINVAL;
+    }
+    
+    pr_err("******%s check download_mode %d\n", __func__,download_mode);
+	set_dload_mode(download_mode);
+
+    return 1;
+}
+
 #else
 static void set_dload_mode(int on)
 {
@@ -213,6 +245,19 @@ static bool get_dload_mode(void)
 	return false;
 }
 #endif
+
+
+/* FIH, to support fih apr */
+unsigned int restart_reason_rd(void)
+{
+	return readl(restart_reason);
+}
+
+void restart_reason_wt(unsigned int rere)
+{
+	__raw_writel(rere, restart_reason);
+}
+/* FIH, to support fih apr */
 
 static void scm_disable_sdi(void)
 {
@@ -281,14 +326,17 @@ static void msm_restart_prepare(const char *cmd)
 
 	if (qpnp_pon_check_hard_reset_stored()) {
 		/* Set warm reset as true when device is in dload mode */
-		if (get_dload_mode() ||
-			((cmd != NULL && cmd[0] != '\0') &&
-			!strcmp(cmd, "edl")))
+		if (get_dload_mode()
+#ifdef CONFIG_FIH_EDL
+			||((cmd != NULL && cmd[0] != '\0') &&
+			!strcmp(cmd, "edl"))
+#endif
+			)
 			need_warm_reset = true;
 	} else {
 		need_warm_reset = (get_dload_mode() ||
 				((cmd != NULL && cmd[0] != '\0') &&
-				strcmp(cmd, "userrequested")));
+				 strcmp(cmd, "userrequested")));
 	}
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
@@ -299,6 +347,7 @@ static void msm_restart_prepare(const char *cmd)
 	}
 
 	if (cmd != NULL) {
+		//pr_info("%s: cmd = (%s)\n", __func__, cmd);
 		if (!strncmp(cmd, "bootloader", 10)) {
 			qpnp_pon_set_restart_reason(
 				PON_RESTART_REASON_BOOTLOADER);
@@ -330,12 +379,62 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
+#ifdef CONFIG_FIH_EDL  //enable for porting temp
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
+#endif
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+
+	/* FIH, to support fih command { */
+	if (cmd != NULL) {
+		if (!strncmp(cmd, "ftm", 3)) {
+			__raw_writel(FIH_RERE_FACTORY_MODE, restart_reason);
+		} else if (!strncmp(cmd, "unlock", 6)) {
+			__raw_writel(FIH_RERE_SECBOOT_UNLOCK, restart_reason);
+			if (fih_secboot_unlock(cmd)) {
+				__raw_writel(FIH_RERE_REBOOT_MODE, restart_reason);
+			}
+		} else if (!strncmp(cmd, "poff_chg_alarm", 14)) {
+			__raw_writel(FIH_RERE_POFF_CHG_ALARM, restart_reason);
+		} else if (!strncmp(cmd, "unknown", 7)) {
+			__raw_writel(FIH_RERE_UNKNOWN_RESET, restart_reason);
+			set_dload_mode(download_mode);
+		} else if (!strncmp(cmd, "panic", 5)) {
+			__raw_writel(FIH_RERE_KERNEL_PANIC, restart_reason);
+			set_dload_mode(download_mode);
+		} else if (strstr(cmd, "exception in system process") ||
+			strstr(cmd, "Watchdog reboot system") ||
+			strstr(cmd, "system crash")) {
+			__raw_writel(FIH_RERE_FRAMEWORK_EXCEPTION, restart_reason);
+		} else if (strstr(cmd, "modem crashed")) {
+			__raw_writel(FIH_RERE_MODEM_FATAL_ERR, restart_reason);
+			set_dload_mode(download_mode);
+		} else if (strstr(cmd, "skt_restart")) {
+			__raw_writel(FIH_RERE_SKT_RESTART, restart_reason);
+		}
+	//HCLai add for memory test in RUNIN START
+		else if (strstr(cmd, "memory_test")) {
+			__raw_writel(FIH_RERE_MEMORY_TEST, restart_reason);
+		}
+	//HCLai add for memory test in RUNIN END
+	} else {
+		pr_info("%s: cmd is NULL\n", __func__);
+		__raw_writel(FIH_RERE_CMD_REBOOT_MODE, restart_reason);
+	}
+
+	if (in_panic) {
+		pr_info("%s: in_panic = %d\n", __func__, in_panic);
+		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+		__raw_writel(FIH_RERE_KERNEL_PANIC, restart_reason);
+		set_dload_mode(download_mode);
+	}
+
+	pr_info("%s: rere = 0x%08x\n", __func__, readl(restart_reason));
+	pr_info("%s: dload = (%s)\n", __func__, (get_dload_mode()? "true":"false"));
+	/* FIH, to support fih command } */
 
 	flush_cache_all();
 
@@ -479,8 +578,23 @@ static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
 }
 RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
 
+static char fac_n[6] = {0};//true or false
+static int __init parse_fac_n_mode(char *line)
+{
+	strlcpy(fac_n, line, sizeof(fac_n));
+	return 1;
+}
+__setup("androidboot.fac_n=", parse_fac_n_mode);
+
+static ssize_t get_fac_n_mode(struct kobject *kobj, struct attribute *attr, char *buf)
+{
+	return snprintf(buf, sizeof(fac_n), "%s", fac_n);
+}
+RESET_ATTR(fac_n, 0444, get_fac_n_mode, NULL);
+
 static struct attribute *reset_attrs[] = {
 	&reset_attr_emmc_dload.attr,
+	&reset_attr_fac_n.attr,
 	NULL
 };
 
